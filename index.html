@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>발렌베르크의 감찰관</title>
+    <style>
+        /* 기본 설정 & 테마 (고급스러운 다크 & 골드) */
+        :root {
+            --bg-color: #121212;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --gold: #d4af37;
+            --gold-hover: #f1c40f;
+            --border-style: 1px solid #333;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            color: var(--text-main);
+            font-family: 'Noto Serif KR', 'KoPub Batang', serif;
+            line-height: 1.6;
+            background-color: var(--bg-color);
+            background-image: linear-gradient(rgba(18, 18, 18, 0.85), rgba(18, 18, 18, 0.85)), url('https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/bag2.png');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+        }
+
+        /* 페이크 로딩 & 입장 화면 */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #050505;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 2.5s ease;
+        }
+        
+        .loading-text {
+            color: var(--gold);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        #enter-btn {
+            display: none;
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            color: #000;
+            background-color: var(--gold);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: 0.3s;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+
+        #enter-btn:hover { 
+            background-color: var(--gold-hover); 
+            box-shadow: 0 0 25px rgba(241, 196, 15, 0.6);
+            transform: scale(1.05);
+        }
+
+        /* 메인 컨테이너 */
+        #main-content {
+            display: none;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* 상단 BGM 컨트롤러 */
+        .bgm-controller {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .bgm-controller span { color: var(--gold); font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;}
+        .bgm-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+        .bgm-btn:hover {
+            background: var(--gold);
+            color: #000;
+        }
+
+        h1, h2, h3 { color: var(--gold); margin-top: 0; }
+        h1 { text-align: center; margin-bottom: 30px; border-bottom: 2px solid var(--gold); padding-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);}
+
+        /* 탭 메뉴 */
+        .tab-menu {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: var(--border-style);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--gold);
+            color: var(--text-main);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: 0.3s;
+            border-radius: 5px;
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        .tab-btn.active, .tab-btn:hover {
+            background: var(--gold);
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* 탭 컨텐츠 영역 */
+        .tab-content { 
+            display: none; 
+            background: rgba(30, 30, 30, 0.9); 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8); 
+            border: 1px solid #333;
+        }
+        .tab-content.active { display: block; animation: fadeIn 0.8s; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 주인공 슬라이드쇼 */
+        .slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            background-color: #111;
+            border: 2px solid var(--gold);
+            border-radius: 5px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .hero-slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain; 
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .hero-slide.active { opacity: 1; }
+
+        /* 소설 문체 서사 박스 */
+        .story-box {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #444;
+            border-top: 3px solid #8b0000;
+            padding: 30px;
+            border-radius: 8px;
+            font-size: 1.15rem;
+            line-height: 1.8;
+            text-align: center;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            margin-top: 20px;
+        }
+
+        .story-box p { margin-bottom: 15px; }
+        .story-box .twist { color: #b3b3b3; font-style: italic; margin-top: 30px; font-size: 1.1rem; }
+
+        /* 시스템 가이드 박스 */
+        .system-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            padding: 25px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        }
+        
+        .system-box h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 10px; }
+        .system-box.rep-box { border-top: 3px solid var(--gold); }
+        .system-box.desire-box { border-top: 3px solid #ff4757; }
+        .system-box.magic-box { border-top: 3px solid #3498db; }
+        .system-box.salon-box { border-top: 3px solid #9b59b6; }
+
+        /* 살롱 양피지 요금표 스타일 */
+        .parchment {
+            background-color: #f4e8d2;
+            color: #3b2b1a;
+            padding: 20px 30px;
+            margin-top: 25px;
+            border-radius: 3px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.1);
+            font-family: 'Noto Serif KR', serif;
+            border: 1px solid #d4c0a1;
+            position: relative;
+        }
+        .parchment::before {
+            content: '';
+            position: absolute;
+            top: 5px; left: 5px; right: 5px; bottom: 5px;
+            border: 1px solid rgba(139, 69, 19, 0.2);
+            pointer-events: none;
+        }
+        .parchment h4 { text-align: center; margin-top: 0; color: #5a3d20; border-bottom: 1px solid rgba(139, 69, 19, 0.3); padding-bottom: 10px; font-size: 1.2rem;}
+        .parchment ul { list-style: none; padding: 0; margin: 0; }
+        .parchment li { border-bottom: 1px dashed rgba(139, 69, 19, 0.3); padding: 10px 5px; display: flex; justify-content: space-between; font-weight: bold;}
+        .parchment li:last-child { border-bottom: none; }
+        .parchment .price { color: #8b0000; }
+
+        /* 마법 목록 스타일 */
+        .magic-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            border: 1px solid #444;
+        }
+        .magic-item { border-left: 3px solid #3498db; padding-left: 10px; }
+        
+        .basic-magic {
+            border-left-color: #e74c3c;
+            border-top: 2px solid #e74c3c;
+            margin-bottom: 20px;
+        }
+
+        /* 등장인물 그리드 */
+        .char-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .char-card {
+            background: rgba(20, 20, 20, 0.8);
+            padding: 20px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            transition: transform 0.3s, border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .char-card.special-card {
+            grid-column: span 2;
+            border-top: 3px solid var(--gold);
+        }
+
+        .char-card:hover { transform: translateY(-5px); border-color: var(--gold); }
+        .char-card h3 { margin-bottom: 10px; color: var(--gold-hover); font-size: 1.4rem; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .char-card .meta { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 15px; }
+        .char-card .desc { font-size: 1rem; line-height: 1.7; color: #ddd; }
+
+        .char-img {
+            width: 100%;
+            height: 350px;
+            object-fit: cover; 
+            object-position: top; 
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+            background-color: #000;
+        }
+
+        .special-card .char-img { height: 450px; }
+
+        /* 완벽하게 숨겨진 플레이어 영역 */
+        .hidden-player {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: -999;
+        }
+
+        /* 모바일 대응 */
+        @media (max-width: 768px) {
+            .char-grid { grid-template-columns: 1fr; }
+            .char-card.special-card { grid-column: span 1; }
+            .tab-btn { padding: 8px 10px; font-size: 0.85rem; }
+            h1 { font-size: 1.5rem; }
+            .magic-list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+
+    <div class="hidden-player">
+        <iframe id="sc-player" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1217805877&auto_play=false&visual=false&show_artwork=false"></iframe>
+    </div>
+
+    <div id="loading-screen">
+        <div class="loading-text" id="loading-text">불러오는 중...</div>
+        <button id="enter-btn" onclick="enterSite()">입 장</button>
+    </div>
+
+    <div id="main-content">
+        
+        <div class="bgm-controller">
+            <span>🎵 BGM</span>
+            <button class="bgm-btn" onclick="playAudio()">▶ 재생</button>
+            <button class="bgm-btn" onclick="pauseAudio()">⏸ 정지</button>
+        </div>
+
+        <h1>발렌베르크의 감찰관</h1>
+
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="openTab('tab-hero')">주인공</button>
+            <button class="tab-btn" onclick="openTab('tab-char')">등장인물</button>
+            <button class="tab-btn" onclick="openTab('tab-npc')">NPC</button>
+            <button class="tab-btn" onclick="openTab('tab-system')">시스템 가이드</button>
+        </div>
+
+        <div id="tab-hero" class="tab-content active">
+            <h2>주인공 정보</h2>
+            <div class="slideshow-container">
+                <img class="hero-slide active" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u1.png" alt="주인공 이미지 1">
+                <img class="hero-slide" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u2.png" alt="주인공 이미지 2">
+                <img class="hero-slide" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u3.png" alt="주인공 이미지 3">
+                <img class="hero-slide" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u4.png" alt="주인공 이미지 4">
+                <img class="hero-slide" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u5.png" alt="주인공 이미지 5">
+                <img class="hero-slide" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/u6.png" alt="주인공 이미지 6">
+            </div>
+
+            <div class="story-box">
+                <p>당신은 왕실 감찰관으로서 이 화려하고 활기찬 발렌베르크 영지에 새로이 발령받았습니다.</p>
+                <p>눈부시게 아름다운 대자연과 누구에게나 허락된 달콤한 자유,<br>그리고 끝없이 이어지는 화려한 즐길 거리로 쉴 새 없이 북적이는 꿈의 영지, 발렌베르크.</p>
+                <p>눈앞에 펼쳐진 환상적인 광경을 바라보며,<br>당신은 앞으로 이곳에서 어떤 나날들이 기다리고 있을지 잔뜩 부푼 기대를 안고 첫발을 내디뎠습니다.</p>
+                
+                <p class="twist">하지만… 언제나 운명은 가혹하고, 세상만사는 결코 생각대로 흘러가지 않는 법이죠.</p>
+                <p class="twist">빛이 눈부실수록 그 이면의 그림자는 더욱 짙어지는 것처럼,<br>당신을 기다리고 있는 진짜 이야기가 이제 막 막을 올리려 합니다.</p>
+            </div>
+        </div>
+
+        <div id="tab-char" class="tab-content">
+            <h2>등장인물</h2>
+            <div class="char-grid">
+                
+                <div class="char-card special-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/d1.png" alt="다니엘">
+                    <h3>□ 다니엘 (♂/28세)</h3>
+                    <div class="meta">발렌베르크의 후계자</div>
+                    <div class="desc">
+                        이 놀라운 영지를 가꾸어낸 영주의 아들입니다. 모든 것을 가졌지만 단 한 가지, 당신만은 가지지 못했습니다. 그리고 어째서인지 그는 그 사실에 대해 형용할 수 없는 분노를 품고 있는 듯합니다.
+                    </div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/e1.png" alt="엘리">
+                    <h3>□ 엘리 (♀/25세)</h3>
+                    <div class="meta">옛 친구</div>
+                    <div class="desc">아카데미 시절 모든 것을 함께했던 동기입니다. 운명처럼 이곳 영지에서 다시 재회하게 된 그녀는 낯선 땅에서 당신이 마주한 유일한 위안일지도 모릅니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/b1.png" alt="벨로아">
+                    <h3>□ 벨로아 (♀/30세)</h3>
+                    <div class="meta">살롱 마담</div>
+                    <div class="desc">영지 내 최고의 환락가, 실루엣 살롱을 이끄는 마담입니다. 그녀는 어쩌면, 절박한 상황에 처한 당신의 방문을 조용히 기다리고 있을지도 모릅니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/s1.png" alt="세르디온">
+                    <h3>□ 세르디온 (♂/31세)</h3>
+                    <div class="meta">고탑의 마법사</div>
+                    <div class="desc">외진 곳에 자리한 고탑을 지키는 마법사이자 상인입니다. 신비로운 지식과 금기된 물건들을 다루는 그의 눈빛은 항상 미지의 호기심으로 가득 차 있습니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/m1.png" alt="마르코">
+                    <h3>□ 마르코 (♂/34세)</h3>
+                    <div class="meta">기사단장</div>
+                    <div class="desc">발렌베르크의 치안과 질서를 책임지는 직속 기사단장입니다. 무뚝뚝하지만 충직한 그는 당신의 직위를 알고 정중히 대우하는 몇 안 되는 인물입니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/l1.png" alt="루카스">
+                    <h3>□ 루카스 (♂/35세)</h3>
+                    <div class="meta">베테랑 모험가</div>
+                    <div class="desc">산전수전을 다 겪은 베테랑 모험가입니다. 거칠고 불평이 많아 보이지만 제법 듬직한 구석이 있습니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/h1.png" alt="헬레나">
+                    <h3>□ 헬레나 (♀/25세)</h3>
+                    <div class="meta">활발한 모험가</div>
+                    <div class="desc">언제나 긍정적인 에너지를 잃지 않는 활발한 성격의 모험가입니다. 다소 덤벙대는 면이 있지만 분위기 메이커 역할을 톡톡히 해냅니다.</div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="tab-npc" class="tab-content">
+            <h2>주요 NPC</h2>
+            <div class="char-grid">
+                
+                <div class="char-card special-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/npc1.png" alt="헤럴드">
+                    <h3>□ 헤럴드 (♂/55세)</h3>
+                    <div class="meta">발렌베르크 영주</div>
+                    <div class="desc">
+                        초라한 영지에서 시작해 발렌베르크를 왕국 최고의 영지 중 하나로 만든 장본인입니다. 적으로는 두고 싶지 않은 인물이지만, 왕실 감찰관이라는 직책은 이미 그의 심기를 건드리기 충분했습니다.<br><br>
+                        평소대로라면 그의 방탕한 아들이 허튼짓거리 하지 못하도록 목줄을 채우겠지만, 이번에는..
+                    </div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/npc2.png" alt="오로라">
+                    <h3>□ 오로라 (♀/27세)</h3>
+                    <div class="meta">아르카 길드 접수원</div>
+                    <div class="desc">아르카 길드의 유능한 접수원입니다. 친절한 미소 뒤에 영지의 모든 정보를 꿰뚫고 있는 유명인입니다. 길드 의뢰부터 아르바이트까지 그녀의 손을 안 거친 곳을 찾기 어려울 정도입니다.</div>
+                </div>
+
+                <div class="char-card">
+                    <img class="char-img" src="https://raw.githubusercontent.com/khslone1/isp/refs/heads/main/npc3.png" alt="에드거">
+                    <h3>□ 에드거 (♂/46세)</h3>
+                    <div class="meta">여관 주인</div>
+                    <div class="desc">당신이 묵게 될 금비늘 여관의 주인입니다. 영지 내에서도 비싸기로 유명한 곳이지만, 어째서인지 다른 여관에선 당신을 받아주질 않아 이곳에 묶이게 되었습니다. 그리고, 매일 잊지도 않고 당신을 찾아와 숙박비를 요구합니다.</div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="tab-system" class="tab-content">
+            <h2>시스템 가이드</h2>
+            
+            <div class="system-box rep-box">
+                <h3 style="color: var(--gold-hover);">🌟 명성 (Reputation)</h3>
+                <p>당신이 이 낯선 땅에서 살아남기 위해 발버둥 치는 동안에도, 세상의 차가운 시선은 항상 당신의 일거수일투족을 주시하고 있습니다.</p>
+                <p>'왕실 감찰관'이라는 무거운 직함, 그리고 첫 단추부터 어긋나버린 악명은 이곳 발렌베르크에서 당신이 좋은 인상을 남기는 것을 결코 쉽게 허락하지 않을 것입니다.</p>
+            </div>
+
+            <div class="system-box desire-box">
+                <h3 style="color: #ff6b6b;">🔥 욕구 (Desire)</h3>
+                <p>하지만 당신 또한 감정을 가진 한 명의 사람이며, 아름다움이 만개한 한창때의 여성입니다.</p>
+                <p>욕망과 자유가 넘실거리는 이 영지에서 당신의 감각은 끊임없이 자극받고 흔들릴 것입니다.</p>
+                <p style="margin-top: 15px; color: #b3b3b3; font-style: italic;">쌓여만 가는 욕구를 어떻게 해소할지… 그 모든 결과는 오직 당신의 몫으로 남을 것입니다.</p>
+            </div>
+
+            <div class="system-box magic-box">
+                <h3 style="color: #3498db;">✨ 마법 (Magic)</h3>
+                <p>당신은 검술도 뛰어나지만, 뭐니 뭐니 해도 마법적 재능이 탁월했습니다. 3원소 마법의 대가입니다.</p>
+                
+                <div class="magic-list basic-magic">
+                    <div class="magic-item"><strong>🔥 화염:</strong> 강력하게 적을 불태우는 원소 다루기</div>
+                    <div class="magic-item"><strong>❄️ 냉기:</strong> 대상을 둔화시키고 얼어붙게 만드는 마법</div>
+                    <div class="magic-item"><strong>⚡ 전격:</strong> 짜릿한 번개로 적을 감전시키는 공격</div>
+                </div>
+
+                <p style="margin-top: 25px; margin-bottom: 15px; font-weight: bold; color: #ccc;">
+                    하지만, 배움에 끝이 없는 법. 당신의 여정을 도울 새로운 마법이 고탑에서 당신을 기다립니다.<br>
+                    <span style="color: #999; font-size: 0.95rem; font-style: italic;">단, 그에 합당한 대가는 지불해야겠지요.</span>
+                </p>
+                
+                <div class="magic-list">
+                    <div class="magic-item" style="border-left-color: #f1c40f;"><strong>🛡️ 방어막:</strong> 피해 경감 보호막 생성</div>
+                    <div class="magic-item" style="border-left-color: #f1c40f;"><strong>✨ 빛:</strong> 시야 확보 및 상대 방심 유도</div>
+                    <div class="magic-item" style="border-left-color: #f1c40f;"><strong>🌑 어둠:</strong> 암흑 생성 및 은신, 퇴각 활용</div>
+                    <div class="magic-item" style="border-left-color: #f1c40f;"><strong>🧠 염력:</strong> 사물 조종 (최대 10kg)</div>
+                    <div class="magic-item" style="border-left-color: #2ecc71;"><strong>🌿 치유:</strong> 생명력 회복</div>
+                    <div class="magic-item" style="border-left-color: #9b59b6;"><strong>👟 안개걸음:</strong> 단거리 시야 내 순간이동</div>
+                    <div class="magic-item" style="border-left-color: #9b59b6;"><strong>🔓 노크:</strong> 잠긴 상자나 문 강제 개방</div>
+                    <div class="magic-item" style="border-left-color: #9b59b6;"><strong>👻 투명화:</strong> 5분간 완전히 모습 감추기</div>
+                    <div class="magic-item" style="border-left-color: #9b59b6;"><strong>🪶 비행:</strong> 5분간 공중 이동 및 낙하 피해 면역</div>
+                </div>
+            </div>
+
+            <div class="system-box salon-box">
+                <h3 style="color: #9b59b6;">💋 실루엣 살롱 (Silhouette Salon)</h3>
+                <p>환락의 속삭임이자, 당신의 마지막 도피처입니다. 하지만 효과는 확실하죠.</p>
+                <p>이곳에 발을 들였다는 것은, 각오는 되었다는 이야기입니다.</p>
+                <p style="font-weight: bold; color: #d4af37;">'베일 마크'를 받아 소지하는 순간, 당신은 매혹적인 '먹잇감'이 됩니다.</p>
+
+                <div class="parchment">
+                    <h4>[ 살롱 기본 요금표 ]</h4>
+                    <ul>
+                        <li><span>가벼운 대화 및 접대</span> <span class="price">15 G</span></li>
+                        <li><span>가벼운 스킨십 및 연인 연기</span> <span class="price">30 G</span></li>
+                        <li><span>입맞춤 및 은밀한 시선 허용과 가벼운 터치</span> <span class="price">40 G</span></li>
+                        <li><span>뜨거운 감상 및 옷 한 장 위로의 손길</span> <span class="price">60 G</span></li>
+                        <li><span>맨살의 굴곡을 훑는 터치 및 비밀스런 틈새 감상</span> <span class="price">80 G</span></li>
+                        <li><span>손길의 침입 및 부드러운 머릿결의 쾌락</span> <span class="price">100 G</span></li>
+                        <li><span>비밀스런 틈새를 직접 맛보기</span> <span class="price">120 G</span></li>
+                        <li><span>수작업으로 이루어지는 특별 봉사</span> <span class="price">150 G</span></li>
+                        <li><span>전신을 이용한 특별 봉사</span> <span class="price">200 G</span></li>
+                        <li><span>가장 깊고 은밀한 관계</span> <span class="price">300 G</span></li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let scWidget;
+        let isFirstPlay = true;
+
+        // 로딩 화면 처리: 2.5초 후 텍스트 사라지고 버튼 표시
+        window.onload = function() {
+            // 사운드클라우드 위젯 초기화
+            const iframeElement = document.getElementById('sc-player');
+            scWidget = SC.Widget(iframeElement);
+            
+            // 처음 재생될 때 9초(9000ms)로 점프
+            scWidget.bind(SC.Widget.Events.PLAY, function() {
+                if (isFirstPlay) {
+                    scWidget.seekTo(9000); 
+                    isFirstPlay = false;
+                }
+            });
+
+            setTimeout(function() {
+                document.getElementById('loading-text').style.display = "none";
+                document.getElementById('enter-btn').style.display = "block";
+            }, 2500);
+        };
+
+        // 입장 버튼 클릭 시 BGM 재생 및 화면 전환
+        function enterSite() {
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.style.opacity = '0'; 
+
+            // 사운드클라우드 재생 (볼륨 15)
+            if (scWidget) {
+                scWidget.setVolume(15);
+                scWidget.play();
+            }
+
+            setTimeout(function() {
+                loadingScreen.style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                showSlides();
+            }, 2500);
+        }
+
+        // BGM 수동 재생
+        function playAudio() {
+            if (scWidget) scWidget.play();
+        }
+
+        // BGM 수동 정지
+        function pauseAudio() {
+            if (scWidget) scWidget.pause();
+        }
+
+        // 주인공 슬라이드쇼
+        let slideIndex = 0;
+        function showSlides() {
+            let slides = document.getElementsByClassName("hero-slide");
+            for (let i = 0; i < slides.length; i++) slides[i].classList.remove("active");
+            slideIndex++;
+            if (slideIndex > slides.length) slideIndex = 1;
+            slides[slideIndex - 1].classList.add("active");
+            setTimeout(showSlides, 3000); 
+        }
+
+        // 탭 전환
+        function openTab(tabId) {
+            var contents = document.getElementsByClassName("tab-content");
+            for (var i = 0; i < contents.length; i++) contents[i].classList.remove("active");
+            var btns = document.getElementsByClassName("tab-btn");
+            for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
+            document.getElementById(tabId).classList.add("active");
+            event.currentTarget.classList.add("active");
+        }
+    </script>
+</body>
+</html>
